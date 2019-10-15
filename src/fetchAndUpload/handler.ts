@@ -26,14 +26,14 @@ export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => 
           console.log('buffering response');
           return response.buffer(); 
         }
-      ).then(buffer => {
+      ).then(async buffer => {
         const uploadParms = {
           Bucket: process.env.UPLOAD_BUCKET,
           Key: input.imageUrl,
           Body: buffer,
         };
         console.log('uploadParms', uploadParms);
-        s3.putObject(uploadParms).promise()
+        await s3.putObject(uploadParms).promise();
         console.log('object put in bucket');
       });
 

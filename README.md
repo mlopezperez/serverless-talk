@@ -53,3 +53,41 @@ fetchAndUpload:
   "imageUrl": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/6220/6220794_sa.jpg"
 }
 ```
+
+## Configure the S3 bucket
+
+- Custom section for the name
+
+```yml
+custom:
+  bucketName: ${self:provider.stage}-upload-images
+```
+
+- Configure the environment variable so it can be read from code
+
+```yml
+  environment:
+    UPLOAD_BUCKET: ${self:custom.bucketName}
+```
+
+- Add the bucket resource
+
+```yml
+resources:
+  Resources:
+    S3BucketImagesUpload:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}yml
+```
+
+- Add the IAM policy in provider section
+
+```yml
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - s3:*
+      Resource:
+        - 'arn:aws:s3:::${self:custom.bucketName}/*'
+```

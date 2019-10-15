@@ -8,11 +8,29 @@ service:
 plugins:
   - serverless-webpack
 
+custom:
+  bucketName: ${self:provider.stage}-fetch-and-upload
+
 provider:
   name: aws
   runtime: nodejs10.x
   region: ${opt:region, env:AWS_DEFAULT_REGION, 'eu-west-1'}
   stage: dev
+  environment:
+    UPLOAD_BUCKET: ${self:custom.bucketName}
+  iamRoleStatements:    
+    - Effect: "Allow"
+      Action:
+        - s3:*
+      Resource:
+        - 'arn:aws:s3:::${self:custom.bucketName}/*'
+
+resources:
+  Resources:
+    S3BucketImagesUpload:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
 
 functions:
   hello:
