@@ -36,3 +36,12 @@
 
 - We create the source code (see: `src/fetchAndUpload/handler`);
 - We add the new function to `serverless.yml`
+
+```yml
+fetchAndUpload:
+    handler: src/fetchAndUpload/handler.fetchAndUpload
+    events:
+      - http:
+          method: get
+          path: fetch
+```

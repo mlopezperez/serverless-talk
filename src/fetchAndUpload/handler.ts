@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { fetch } from 'node-fetch';
+import fetch from 'node-fetch';
 import { S3 } from 'aws-sdk'
 import 'source-map-support/register';
 
@@ -22,7 +22,7 @@ export const fetchAndUpload: APIGatewayProxyHandler = async (event, _context, ca
         `Failed to fetch ${response.url}: ${response.status} ${response.statusText}`));
     })
     .then(response => response.buffer())
-    .then(buffer => (      
+    .then(buffer => (
       s3.putObject({
         Bucket: process.env.UPLOAD_BUCKET,
         Key: input.imageUrl,
