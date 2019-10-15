@@ -50,6 +50,6 @@ fetchAndUpload:
 
 ```json
 {
-  "imgUrl": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/6220/6220794_sa.jpg"
+  "imageUrl": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/6220/6220794_sa.jpg"
 }
 ```
