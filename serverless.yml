@@ -10,7 +10,9 @@ plugins:
 
 provider:
   name: aws
-  runtime: nodejs10.x  
+  runtime: nodejs10.x
+  region: ${opt:region, env:AWS_DEFAULT_REGION, 'eu-west-1'}
+  stage: dev
 
 functions:
   hello:
