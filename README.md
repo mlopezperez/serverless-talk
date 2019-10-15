@@ -26,3 +26,13 @@
   - `${self:section:name}` to reference the same file
   - `${env:varName}` for environment variables.
 - Variables from other files can be referenced
+
+## Now... let's deploy
+
+- Run `serverless deploy`
+- Go to your AWS console!
+
+## Adding a bucket and a new function
+
+- We create the source code (see: `src/fetchAndUpload/handler`);
+- We add the new function to `serverless.yml`

@@ -21,3 +21,10 @@ functions:
       - http:
           method: get
           path: hello
+  fetchAndUpload:
+    handler: src/fetchAndUpload/handler.fetchAndUpload
+    events:
+      - http:
+          method: get
+          path: fetch
+          
