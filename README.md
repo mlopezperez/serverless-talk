@@ -91,3 +91,35 @@ resources:
       Resource:
         - 'arn:aws:s3:::${self:custom.bucketName}/*'
 ```
+
+## Subscribing a lambda to S3 event
+
+- Create lambda code, with `S3Event`
+- Configure function with `s3` event referencing the bucket
+
+```yml
+  publishEvent:
+    handler: src/publishEvent/handler.publishEventFromS3
+    events:
+      - s3:
+          bucket: ImagesUpload
+          event: s3:ObjectCreated:*
+```
+
+- Add the permission for the bucket to invoke the lambda. This is done in the resources. This is not in the `iamStatements` because is the bucket invoking the lambda, and not the lambda using the bucket
+
+```yml
+PublishEventLambdaPermissionImagesUploadS3:
+      Type: 'AWS::Lambda::Permission'
+      Properties:
+        FunctionName:
+          'Fn::GetAtt':
+            - PublishEventLambdaFunction
+            - Arn
+        Principal: 's3.amazonaws.com'
+        Action: 'lambda:InvokeFunction'
+        SourceAccount:
+          Ref: AWS::AccountId
+        SourceArn: 'arn:aws:s3:::${self:custom.bucketName}'
+
+```

@@ -31,6 +31,18 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.bucketName}
+    PublishEventLambdaPermissionImagesUploadS3:
+      Type: 'AWS::Lambda::Permission'
+      Properties:
+        FunctionName:
+          'Fn::GetAtt':
+            - PublishEventLambdaFunction
+            - Arn
+        Principal: 's3.amazonaws.com'
+        Action: 'lambda:InvokeFunction'
+        SourceAccount:
+          Ref: AWS::AccountId
+        SourceArn: 'arn:aws:s3:::${self:custom.bucketName}'
 
 functions:
   hello:
@@ -45,4 +57,10 @@ functions:
       - http:
           method: post
           path: fetch
+  publishEvent:
+    handler: src/publishEvent/handler.publishEventFromS3
+    events:
+      - s3:
+          bucket: ImagesUpload
+          event: s3:ObjectCreated:*          
           
