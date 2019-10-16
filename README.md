@@ -15,8 +15,9 @@
 - Let's add the `region` and the `stage` parameters under the `provider` section.
 
 ```yml
-  region: ${opt:region, env:AWS_DEFAULT_REGION, 'eu-west-1'}
+  region: ${opt:region, 'eu-west-1'}
   stage: dev
+  memorySize: 512
 ```
 
 ### Variables
@@ -121,5 +122,61 @@ PublishEventLambdaPermissionImagesUploadS3:
         SourceAccount:
           Ref: AWS::AccountId
         SourceArn: 'arn:aws:s3:::${self:custom.bucketName}'
+```
 
+## Publish to SNS topic
+
+- Modify the code of the lambda
+
+```typescript  
+        const sns = new SNS();
+        const payload: IEventPayload = {
+            objectKey: r.s3.object.key,
+            objectSize: r.s3.object.size,
+            timestamp: r.eventTime
+        };
+
+        const message = JSON.stringify(payload);
+        const inputRequest: SNS.PublishInput = {
+            Message: message,
+            TopicArn: process.env.TOPIC_ARN
+        }
+        await sns.publish(inputRequest).promise();
+```
+
+- Configure topic name in custom section
+
+```yml
+topicName: ${self:provider.stage}--upload-publish
+```
+
+- Configure env variable with topic ARN using pseudo-parameters plugin
+
+```yml
+topicArn: 'arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:${self:custom.topicName}'
+```
+
+- Configure topic resource
+
+```yml
+UploadEventTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:custom.topicName}
+```
+
+- Configure `iamStatement` so lambdas can publish in SNS (and create the topic first)
+
+```yml
+ - Effect: "Allow"
+      Action:
+        - sns:Publish
+        - sns:CreateTopic
+      Resource:
+        - 'Fn::Join':
+          - ':'
+          - - 'arn:aws:sns'
+            - Ref: 'AWS::Region'
+            - Ref: 'AWS::AccountId'
+            - ${self:custom.topicName}
 ```

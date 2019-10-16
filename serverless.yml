@@ -1,32 +1,49 @@
 service:
   name: serverless-talk
-# app and org for use with dashboard.serverless.com
-#app: your-app-name
-#org: your-org-name
 
 # Add the serverless-webpack plugin
 plugins:
   - serverless-webpack
+  - serverless-pseudo-parameters
 
 custom:
   bucketName: ${self:provider.stage}-fetch-and-upload
+  topicName: ${self:provider.stage}-upload-event
+  topicArn: 'arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:${self:custom.topicName}'    
 
 provider:
   name: aws
   runtime: nodejs10.x
   region: ${opt:region, env:AWS_DEFAULT_REGION, 'eu-west-1'}
   stage: dev
+  memorySize: 512
   environment:
     UPLOAD_BUCKET: ${self:custom.bucketName}
+    UPLOAD_EVENT_TOPIC_ARN: ${self:custom.topicArn}
   iamRoleStatements:    
     - Effect: "Allow"
       Action:
         - s3:*
       Resource:
         - 'arn:aws:s3:::${self:custom.bucketName}/*'
+    - Effect: "Allow"
+      Action:
+        - sns:Publish
+        - sns:CreateTopic
+      Resource:
+        - 'Fn::Join':
+          - ':'
+          - - 'arn:aws:sns'
+            - Ref: 'AWS::Region'
+            - Ref: 'AWS::AccountId'
+            - ${self:custom.topicName}
 
 resources:
   Resources:
+    UploadEventTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:custom.topicName}
     S3BucketImagesUpload:
       Type: AWS::S3::Bucket
       Properties:
