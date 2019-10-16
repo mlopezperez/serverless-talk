@@ -12,7 +12,7 @@ export const publishEventFromS3 = async (event: S3Event, context: Context) => {
     console.log('s3 event context', context);
 
     const sns = new SNS({ region: 'eu-west-1' });
-    await event.Records.map(async r => {
+    await Promise.all(event.Records.map(async r => {
         try {
             console.log('processing record', r);
 
@@ -26,8 +26,7 @@ export const publishEventFromS3 = async (event: S3Event, context: Context) => {
 
             const inputRequest: SNS.PublishInput = {
                 Message: message,
-                TopicArn: process.env.UPLOAD_EVENT_TOPIC_ARN,
-                MessageStructure: 'json'
+                TopicArn: process.env.UPLOAD_EVENT_TOPIC_ARN
             }
             console.log('request', JSON.stringify(inputRequest));
 
@@ -36,5 +35,5 @@ export const publishEventFromS3 = async (event: S3Event, context: Context) => {
         } catch (e) {
             console.log('exception!', e);
         }
-    });
+    }));
 }

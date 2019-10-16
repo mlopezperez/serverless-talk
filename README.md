@@ -35,7 +35,59 @@
 
 ## Adding a bucket and a new function
 
-- We create the source code (see: `src/fetchAndUpload/handler`);
+- We create the source code of the handler
+
+```typescript
+import { APIGatewayProxyHandler } from 'aws-lambda';
+import fetch from 'node-fetch';
+import { S3 } from 'aws-sdk'
+import 'source-map-support/register';
+
+interface IFetchImageRequest {
+  imageUrl: string;
+}
+
+export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => {
+  console.log('event', event);
+  console.log('context', context);
+  const input: IFetchImageRequest = JSON.parse(event.body);
+  console.log('input:', input);
+  console.log('url:', input.imageUrl);
+
+  const s3 = new S3();
+
+  await fetch(input.imageUrl)
+    .then(
+      response => {
+        console.log('fetch success, response', response);
+        return response;
+      }).then(
+        response => {
+          console.log('buffering response');
+          return response.buffer();
+        }
+      ).then(async buffer => {
+        const uploadParms = {
+          Bucket: process.env.UPLOAD_BUCKET,
+          Key: input.imageUrl,
+          Body: buffer,
+        };
+        console.log('uploadParms', uploadParms);
+        await s3.putObject(uploadParms).promise();
+        console.log('object put in bucket');
+      });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: 'Go Serverless Webpack (Typescript) v1.0! Your function executed successfully!',
+      input: event
+    }, null, 2),
+  };
+}
+
+```
+
 - We add the new function to `serverless.yml`
 
 ```yml
@@ -43,11 +95,11 @@ fetchAndUpload:
     handler: src/fetchAndUpload/handler.fetchAndUpload
     events:
       - http:
-          method: get
+          method: post
           path: fetch
 ```
 
-- Example request:
+- Example request body:
 
 ```json
 {
@@ -129,19 +181,45 @@ PublishEventLambdaPermissionImagesUploadS3:
 - Modify the code of the lambda
 
 ```typescript  
-        const sns = new SNS();
-        const payload: IEventPayload = {
-            objectKey: r.s3.object.key,
-            objectSize: r.s3.object.size,
-            timestamp: r.eventTime
-        };
+       import { S3Event, Context } from 'aws-lambda';
+import { SNS } from 'aws-sdk';
 
-        const message = JSON.stringify(payload);
-        const inputRequest: SNS.PublishInput = {
-            Message: message,
-            TopicArn: process.env.TOPIC_ARN
+interface IEventPayload {
+    objectKey: string;
+    objectSize: number;
+    timestamp: string;
+}
+
+export const publishEventFromS3 = async (event: S3Event, context: Context) => {
+    console.log('s3 event handled!', event);
+    console.log('s3 event context', context);
+
+    const sns = new SNS({ region: 'eu-west-1' });
+    await Promise.all(event.Records.map(async r => {
+        try {
+            console.log('processing record', r);
+
+            const payload: IEventPayload = {
+                objectKey: r.s3.object.key,
+                objectSize: r.s3.object.size,
+                timestamp: r.eventTime
+            };
+            const message = JSON.stringify(payload);
+            console.log('message', message);
+
+            const inputRequest: SNS.PublishInput = {
+                Message: message,
+                TopicArn: process.env.UPLOAD_EVENT_TOPIC_ARN
+            }
+            console.log('request', JSON.stringify(inputRequest));
+
+            let response = await sns.publish(inputRequest).promise();
+            console.log('done!', response);
+        } catch (e) {
+            console.log('exception!', e);
         }
-        await sns.publish(inputRequest).promise();
+    }));
+}
 ```
 
 - Configure topic name in custom section
@@ -179,4 +257,77 @@ UploadEventTopic:
             - Ref: 'AWS::Region'
             - Ref: 'AWS::AccountId'
             - ${self:custom.topicName}
+```
+
+## Subscribe SQS to SNS and trigger lambda
+
+- Define queue and deadletter queue
+
+```yml UploadEventDeadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.queueName}-DeadLetters
+        MessageRetentionPeriod: 1209600 # 14 days in seconds
+```
+
+- Define policy for SNS to publish to SQS
+
+```yml
+UploadEventQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - Ref: UploadEventQueue
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action:
+                - sqs:SendMessage
+              Resource: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.topicArn}
+```
+
+- Define subscription
+
+```yml
+ UploadEventSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: ${self:custom.topicArn}
+        Endpoint:
+          Fn::GetAtt:
+            - UploadEventQueue
+            - Arn
+        RawMessageDelivery: true
+        Protocol: sqs
+```
+
+- Define lambda handler code. In this case we'll just read the event
+
+```typescript
+import { SQSEvent, Context } from 'aws-lambda'
+
+export const processQueue = async (event: SQSEvent, context: Context) => {
+    console.log('event', event);
+    console.log('context', context);
+    // Here we can, for example, store info in a DynamoDB table
+}
+```
+
+- Define function in `serverless.yml` linked to SQS event
+
+```yml
+    processQueue:
+    handler: src/processQueue/handler.processQueue
+    events:
+      - sqs:
+          batchSize: 1
+          arn:
+            Fn::GetAtt:
+              - UploadEventQueue
+              - Arn
 ```

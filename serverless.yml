@@ -10,6 +10,7 @@ custom:
   bucketName: ${self:provider.stage}-fetch-and-upload
   topicName: ${self:provider.stage}-upload-event
   topicArn: 'arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:${self:custom.topicName}'    
+  queueName: ${self:provider.stage}-upload-event-queue
 
 provider:
   name: aws
@@ -61,6 +62,53 @@ resources:
           Ref: AWS::AccountId
         SourceArn: 'arn:aws:s3:::${self:custom.bucketName}'
 
+    UploadEventQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.queueName}
+        VisibilityTimeout: 90
+        RedrivePolicy:
+          deadLetterTargetArn:
+            "Fn::GetAtt":
+              - UploadEventDeadLetterQueue
+              - Arn   
+          maxReceiveCount: 4           
+
+    UploadEventDeadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.queueName}-DeadLetters
+        MessageRetentionPeriod: 1209600 # 14 days in seconds
+
+
+    UploadEventQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - Ref: UploadEventQueue
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action:
+                - sqs:SendMessage
+              Resource: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: ${self:custom.topicArn}
+
+    UploadEventSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: ${self:custom.topicArn}
+        Endpoint:
+          Fn::GetAtt:
+            - UploadEventQueue
+            - Arn
+        RawMessageDelivery: true
+        Protocol: sqs
+
 functions:
   hello:
     handler: handler.hello
@@ -79,5 +127,13 @@ functions:
     events:
       - s3:
           bucket: ImagesUpload
-          event: s3:ObjectCreated:*          
-          
+          event: s3:ObjectCreated:*
+  processQueue:
+    handler: src/processQueue/handler.processQueue
+    events:
+      - sqs:
+          batchSize: 1
+          arn:
+            Fn::GetAtt:
+              - UploadEventQueue
+              - Arn

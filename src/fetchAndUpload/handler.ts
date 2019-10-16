@@ -7,8 +7,6 @@ interface IFetchImageRequest {
   imageUrl: string;
 }
 
-const s3 = new S3();
-
 export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => {
   console.log('event', event);
   console.log('context', context);
@@ -16,15 +14,17 @@ export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => 
   console.log('input:', input);
   console.log('url:', input.imageUrl);
 
+  const s3 = new S3();
+
   await fetch(input.imageUrl)
     .then(
       response => {
         console.log('fetch success, response', response);
         return response;
       }).then(
-        response => { 
+        response => {
           console.log('buffering response');
-          return response.buffer(); 
+          return response.buffer();
         }
       ).then(async buffer => {
         const uploadParms = {
