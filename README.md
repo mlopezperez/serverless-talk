@@ -35,12 +35,13 @@
 
 ## Adding a bucket and a new function
 
-- We create the source code of the handler
+- We create the source code of `handler.ts` in a new folder `src/fetchAndUpload`
 
 ```typescript
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import fetch from 'node-fetch';
 import { S3 } from 'aws-sdk'
+import { v4 as uuid } from 'uuid';
 import 'source-map-support/register';
 
 interface IFetchImageRequest {
@@ -69,7 +70,7 @@ export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => 
       ).then(async buffer => {
         const uploadParms = {
           Bucket: process.env.UPLOAD_BUCKET,
-          Key: input.imageUrl,
+          Key: `${uuid()}.jpg`,
           Body: buffer,
         };
         console.log('uploadParms', uploadParms);
@@ -85,6 +86,15 @@ export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => 
     }, null, 2),
   };
 }
+```
+
+- We need some extra dependencies
+
+```sh
+yarn add uuid
+yarn add --dev @types/uuid
+yarn add node-fetch
+yarn add --dev @types/node-fetch
 
 ```
 
@@ -113,7 +123,7 @@ fetchAndUpload:
 
 ```yml
 custom:
-  bucketName: ${self:provider.stage}-upload-images
+  bucketName: ${self:provider.stage}-fetch-and-upload
 ```
 
 - Configure the environment variable so it can be read from code

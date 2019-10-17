@@ -1,6 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import fetch from 'node-fetch';
 import { S3 } from 'aws-sdk'
+import { v4 as uuid } from 'uuid';
 import 'source-map-support/register';
 
 interface IFetchImageRequest {
@@ -29,7 +30,7 @@ export const fetchAndUpload: APIGatewayProxyHandler = async (event, context) => 
       ).then(async buffer => {
         const uploadParms = {
           Bucket: process.env.UPLOAD_BUCKET,
-          Key: input.imageUrl,
+          Key: `${uuid()}.jpg`,
           Body: buffer,
         };
         console.log('uploadParms', uploadParms);
